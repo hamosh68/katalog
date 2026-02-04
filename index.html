@@ -819,6 +819,13 @@
                         <i class="fab fa-whatsapp"></i>
                         مشاركة
                     </button>
+<a href="images/${product.code}.jpg" 
+   download="${product.code}.jpg" 
+   class="action-button download" 
+   id="dl-${product.code}" 
+   onclick="event.stopPropagation();">
+    <i class="fas fa-download"></i> حفظ الصورة
+</a>
                 </div>
             </div>
         `;
@@ -946,21 +953,26 @@
         updateActiveNav('home');
     }
 
-    // المشاركة
     function shareProduct(code, name, brand, event) {
-        if (event) event.stopPropagation();
-        const text = `📦 ${brand} - ${name}\n🔢 الكود: ${code}\n\nكتالوج أبو شمس`;
-        
-        if (navigator.share) {
-            navigator.share({
-                title: name,
-                text: text
-            });
-        } else {
-            const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
-            window.open(url, '_blank');
-        }
+    if (event) event.stopPropagation();
+    
+    // جلب الرابط المباشر للصورة من العنصر الموجود في الصفحة
+    const imgElement = document.getElementById(`img-${code}`) || document.querySelector(`[data-code="${code}"] img`);
+    const imgPath = imgElement ? imgElement.src : window.location.origin + window.location.pathname.replace('index.html', '') + `images/${code}.jpg`;
+    
+    const text = `📦 *${brand}*\n📝 ${name || 'منتج جديد'}\n🔢 الكود: ${code}\n🔗 رابط الصورة:\n${imgPath}`;
+    
+    if (navigator.share) {
+        navigator.share({
+            title: brand,
+            text: text,
+            url: imgPath
+        }).catch(err => console.log('Error sharing', err));
+    } else {
+        const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+        window.open(whatsappUrl, '_blank');
     }
+}
 
     // البحث
     function handleSearch() {
@@ -1027,3 +1039,4 @@
 </script>
 </body>
 </html>
+
