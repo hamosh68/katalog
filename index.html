@@ -745,50 +745,66 @@
     }
 
     // المنتجات
-    function renderProducts() {
-        const query = searchInput.value.toLowerCase().trim();
+   // 1. تأكد أن هذا المتغير موجود في أعلى السكريبت تماماً
+var displayLimit = displayLimit || 24; 
+
+// 2. الدالة المحدثة بالكامل
+function renderProducts() {
+    // التأكد من وجود العناصر قبل البدء لمنع الخطأ
+    const grid = document.getElementById('productsGrid');
+    const empty = document.getElementById('emptyState');
+    const searchInput = document.getElementById('searchInput');
+    
+    if (!grid || !searchInput) return;
+
+    const query = searchInput.value.toLowerCase().trim();
+    
+    // فلترة المنتجات
+    const filtered = products.filter(product => {
+        const brandMatch = currentBrand === 'الكل' || product.brand === currentBrand;
+        const subMatch = (typeof currentSub === 'undefined' || currentSub === 'الكل') || product.sub === currentSub;
+        const searchMatch = !query || 
+            product.code.toLowerCase().includes(query) || 
+            (product.name && product.name.toLowerCase().includes(query));
         
-        clearBtn.style.display = query ? 'block' : 'none';
+        // إذا كنت تستخدم المفضلة
+        const isFavMode = typeof showOnlyFavorites !== 'undefined' && showOnlyFavorites;
+        const favMatch = !isFavMode || favorites.includes(product.code);
+        
+        return brandMatch && subMatch && searchMatch && favMatch;
+    });
 
-        const filtered = products.filter(product => {
-            const brandMatch = currentBrand === 'الكل' || product.brand === currentBrand;
-            const subMatch = currentSub === 'الكل' || product.sub === currentSub;
-            const searchMatch = !query || 
-                product.code.toLowerCase().includes(query) || 
-                product.name.toLowerCase().includes(query);
-            const favMatch = !showOnlyFavorites || favorites.includes(product.code);
-            
-            return brandMatch && subMatch && searchMatch && favMatch;
-        });
+    if (filtered.length === 0) {
+        grid.style.display = 'none';
+        if (empty) empty.style.display = 'block';
+    } else {
+        grid.style.display = 'grid';
+        if (empty) empty.style.display = 'none';
+        
+        // تقطيع المصفوفة لعرض عدد محدد فقط لتسريع التحميل
+        const itemsToShow = filtered.slice(0, displayLimit);
+        
+        // بناء الكروت
+        grid.innerHTML = itemsToShow.map(product => createProductCard(product)).join('');
 
-        if (filtered.length === 0) {
-            productsGrid.style.display = 'none';
-            emptyState.style.display = 'block';
-        } else {
-            productsGrid.style.display = 'grid';
-            emptyState.style.display = 'none';
-            
-            productsGrid.innerHTML = filtered.map(product => createProductCard(product)).join('');
-            
-            // إضافة أيقونات PDF بعد التحميل
-            setTimeout(() => {
-                document.querySelectorAll('.product-image').forEach(img => {
-                    if (img.src.includes('.pdf')) {
-                        const container = img.closest('.product-image-container');
-                        if (!container.querySelector('.pdf-badge')) {
-                            container.insertAdjacentHTML('beforeend', `
-                                <div class="pdf-badge">
-                                    <i class="fas fa-file-pdf"></i>
-                                    PDF
-                                </div>
-                            `);
-                        }
-                    }
-                });
-            }, 100);
+        // إضافة زر "عرض المزيد" إذا كان هناك بقية
+        if (filtered.length > displayLimit) {
+            const loadMoreHtml = `
+                <div id="loadMoreContainer" style="grid-column: 1 / -1; text-align: center; padding: 20px;">
+                    <button onclick="loadMoreItems()" style="padding: 12px 30px; background: #1a237e; color: white; border: none; border-radius: 25px; font-family: 'Cairo'; cursor: pointer; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
+                        👇 عرض المزيد من المنتجات (متبقي ${filtered.length - displayLimit})
+                    </button>
+                </div>`;
+            grid.insertAdjacentHTML('beforeend', loadMoreHtml);
         }
     }
+}
 
+// 3. دالة زيادة العدد (تأكد أنها خارج الدالة السابقة)
+function loadMoreItems() {
+    displayLimit += 24; 
+    renderProducts();
+}
     function createProductCard(product) {
         const isFavorite = favorites.includes(product.code);
         const productName = product.name || 'منتج';
@@ -823,30 +839,42 @@
    download="${product.code}.jpg" 
    class="action-button download" 
    id="dl-${product.code}" 
-   onclick="event.stopPropagation();">
-    <i class="fas fa-download"></i> حفظ الصورة
+   onclick="event.stopPropagation();"
+   style="background: #ffeb3b; color: #000; box-shadow: 0 0 10px rgba(255, 235, 59, 0.5); font-weight: bold;">
+    <i class="fas fa-download"></i> حفظ صورة
 </a>
                 </div>
             </div>
         `;
     }
 
-    // معالجة الصور
     function tryNextExtension(img, code) {
-        const currentSrc = img.src;
-        const currentExt = currentSrc.split('.').pop().toLowerCase();
-        const currentIndex = SUPPORTED_EXTENSIONS.indexOf(currentExt);
+    const currentSrc = img.src;
+    const currentExt = currentSrc.split('.').pop().toLowerCase();
+    const currentIndex = SUPPORTED_EXTENSIONS.indexOf(currentExt);
+    
+    if (currentIndex < SUPPORTED_EXTENSIONS.length - 1) {
+        const nextExt = SUPPORTED_EXTENSIONS[currentIndex + 1];
+        const newPath = `images/${code}.${nextExt}`;
         
-        if (currentIndex < SUPPORTED_EXTENSIONS.length - 1) {
-            const nextExt = SUPPORTED_EXTENSIONS[currentIndex + 1];
-            img.src = `images/${code}.${nextExt}`;
-            img.onerror = function() {
-                tryNextExtension(this, code);
-            };
-        } else {
-            img.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="150" viewBox="0 0 200 150"><rect width="100%" height="100%" fill="%23f5f5f5"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" font-family="Cairo" font-size="12" fill="%23999">${code}</text></svg>';
+        // تغيير مسار الصورة للعرض
+        img.src = newPath;
+        
+        // تحديث زر التحميل ليعرف الامتداد الجديد (png أو غيره)
+        const downloadBtn = document.getElementById(`dl-${code}`);
+        if (downloadBtn) {
+            downloadBtn.href = newPath;
+            downloadBtn.setAttribute('download', `${code}.${nextExt}`);
         }
+
+        img.onerror = function() {
+            tryNextExtension(this, code);
+        };
+    } else {
+        // إذا لم يجد أي صورة، يضع صورة فارغة
+        img.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="150"><rect width="100%" height="100%" fill="%23eee"/><text x="50%" y="50%" text-anchor="middle" font-family="Cairo" font-size="12" fill="%23999">${code}</text></svg>';
     }
+}
 
     // فتح المنتج
     async function openProduct(code, name, brand, event) {
@@ -1039,4 +1067,5 @@
 </script>
 </body>
 </html>
+
 
