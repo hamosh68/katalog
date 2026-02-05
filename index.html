@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -830,11 +828,12 @@
 
     // التهيئة
     function init() {
-        renderBrands();
-        renderSubCategories();
-        renderProducts();
-        setupEventListeners();
-        updateActiveNav();
+    renderBrands();
+    renderSubCategories();
+    renderProducts();
+    setupEventListeners();
+    // أضف هذا السطر في النهاية لضمان فتح صفحة الكل
+    showAll();
     }
 
     // التصنيفات
@@ -886,7 +885,6 @@ var displayLimit = displayLimit || 24;
 
 // 2. الدالة المحدثة بالكامل
 function renderProducts() {
-    // التأكد من وجود العناصر قبل البدء لمنع الخطأ
     const grid = document.getElementById('productsGrid');
     const empty = document.getElementById('emptyState');
     const searchInput = document.getElementById('searchInput');
@@ -895,21 +893,27 @@ function renderProducts() {
 
     const query = searchInput.value.toLowerCase().trim();
     
-    // فلترة المنتجات
+    // فلترة المنتجات بناءً على كل الخصائص
     const filtered = products.filter(product => {
+        // 1. فلترة الماركة والطلبات الجانبية
         const brandMatch = currentBrand === 'الكل' || product.brand === currentBrand;
         const subMatch = (typeof currentSub === 'undefined' || currentSub === 'الكل') || product.sub === currentSub;
+        
+        // 2. البحث الشامل (كود، اسم، ماركة، قسم)
         const searchMatch = !query || 
             product.code.toLowerCase().includes(query) || 
-            (product.name && product.name.toLowerCase().includes(query));
+            (product.name && product.name.toLowerCase().includes(query)) || 
+            (product.brand && product.brand.toLowerCase().includes(query)) || 
+            (product.sub && product.sub.toLowerCase().includes(query));
         
-        // إذا كنت تستخدم المفضلة
+        // 3. فلترة المفضلة
         const isFavMode = typeof showOnlyFavorites !== 'undefined' && showOnlyFavorites;
         const favMatch = !isFavMode || favorites.includes(product.code);
         
         return brandMatch && subMatch && searchMatch && favMatch;
     });
 
+    // عرض النتائج أو إخفاؤها
     if (filtered.length === 0) {
         grid.style.display = 'none';
         if (empty) empty.style.display = 'block';
@@ -917,18 +921,15 @@ function renderProducts() {
         grid.style.display = 'grid';
         if (empty) empty.style.display = 'none';
         
-        // تقطيع المصفوفة لعرض عدد محدد فقط لتسريع التحميل
         const itemsToShow = filtered.slice(0, displayLimit);
-        
-        // بناء الكروت
         grid.innerHTML = itemsToShow.map(product => createProductCard(product)).join('');
 
-        // إضافة زر "عرض المزيد" إذا كان هناك بقية
+        // زر عرض المزيد
         if (filtered.length > displayLimit) {
             const loadMoreHtml = `
                 <div id="loadMoreContainer" style="grid-column: 1 / -1; text-align: center; padding: 20px;">
-                    <button onclick="loadMoreItems()" style="padding: 12px 30px; background: #1a237e; color: white; border: none; border-radius: 25px; font-family: 'Cairo'; cursor: pointer; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
-                        👇 عرض المزيد من المنتجات (متبقي ${filtered.length - displayLimit})
+                    <button onclick="loadMoreItems()" style="padding: 12px 30px; background: #1a237e; color: white; border: none; border-radius: 25px; font-family: 'Cairo'; cursor: pointer; font-weight: bold;">
+                        عرض المزيد (${filtered.length - displayLimit})
                     </button>
                 </div>`;
             grid.insertAdjacentHTML('beforeend', loadMoreHtml);
@@ -1203,6 +1204,7 @@ function loadMoreItems() {
 </script>
 </body>
 </html>
+
 
 
 
